@@ -60,6 +60,7 @@
     </div>
   </div>
 
+  <p id="estado" style="text-align:center; font-weight:bold;"></p>
   <!-- Contenedor del Calendario Semanal -->
   <div id="calendar"></div>
 
@@ -96,40 +97,161 @@
       cargarHorarios();
     });
 
-    async function cargarHorarios() {
-      const carrera = document.getElementById('carrera').value;
-      const anio = parseInt(document.getElementById('anio').value);
-      const cuatrimestre = parseInt(document.getElementById('cuatrimestre').value);
+    
+async function cargarHorarios() {
+  const estado = document.getElementById('estado');
 
-      // Consulta relacional ejecutada contra Supabase
-      const { data, error } = await _supabase
-        .from('clase')
-        .select(`
-          dia_semana,
-          hora_inicio,
-          hora_fin,
-          frecuencia,
-          comision!inner(
-            cuatrimestre,
-            plan_estudio!inner(
-              nombre_especifico,
-              id_carrera,
-              anio_cursada
-            )
-          ),
-          aula(
-            nombre_numero,
-            sede(nombre_sede)
+  const carrera = document.getElementById('carrera').value;
+  const anio = parseInt(document.getElementById('anio').value);
+  const cuatrimestre = parseInt(
+    document.getElementById('cuatrimestre').value
+  );
+
+  estado.textContent = 'Cargando horarios...';
+  estado.style.color = '#0056b3';
+
+  calendar.removeAllEvents();
+
+  try {
+    // PASO 1: Buscar las materias del plan de estudio
+    const { data: planes, error: errorPlanes } = await _supabase
+      .from('plan_estudio')
+      .select('id_asignatura, nombre_especifico')
+      .eq('id_carrera', carrera)
+      .eq('anio_cursada', anio);
+
+    if (errorPlanes) throw errorPlanes;
+
+    if (!planes || planes.length === 0) {
+      estado.textContent = 'No se encontraron materias para esta selección.';
+      return;
+    }
+
+    // Relacionar cada asignatura con su nombre específico
+    const nombresMaterias = {};
+
+    planes.forEach(plan => {
+      nombresMaterias[plan.id_asignatura] = plan.nombre_especifico;
+    });
+
+    const idsAsignaturas = [
+      ...new Set(planes.map(plan => plan.id_asignatura))
+    ];
+
+    // PASO 2: Buscar las comisiones del cuatrimestre
+    const { data: comisiones, error: errorComisiones } = await _supabase
+      .from('comision')
+      .select('id_comision, id_asignatura')
+      .in('id_asignatura', idsAsignaturas)
+      .eq('cuatrimestre', cuatrimestre);
+
+    if (errorComisiones) throw errorComisiones;
+
+    if (!comisiones || comisiones.length === 0) {
+      estado.textContent = 'No hay comisiones para este cuatrimestre.';
+      return;
+    }
+
+    // Relacionar comisiones con sus asignaturas
+    const materiasPorComision = {};
+
+    comisiones.forEach(comision => {
+      materiasPorComision[comision.id_comision] =
+        nombresMaterias[comision.id_asignatura];
+    });
+
+    const idsComisiones = comisiones.map(
+      comision => comision.id_comision
+    );
+
+    // PASO 3: Buscar las clases, aulas y sedes
+    const { data: clases, error: errorClases } = await _supabase
+      .from('clase')
+      .select(`
+        id_clase,
+        id_comision,
+        dia_semana,
+        hora_inicio,
+        hora_fin,
+        frecuencia,
+        observaciones,
+        aula (
+          nombre_numero,
+          sede (
+            nombre_sede
           )
-        `)
-        .eq('comision.plan_estudio.id_carrera', carrera)
-        .eq('comision.plan_estudio.anio_cursada', anio)
-        .eq('comision.cuatrimestre', cuatrimestre);
+        )
+      `)
+      .in('id_comision', idsComisiones);
 
-      if (error) {
-        console.error('Error al consultar horarios:', error);
-        return;
-      }
+    if (errorClases) throw errorClases;
+
+    if (!clases || clases.length === 0) {
+      estado.textContent = 'No hay horarios cargados para estas materias.';
+      return;
+    }
+
+    // PASO 4: Convertir los registros en eventos de FullCalendar
+    const normalizarDia = dia =>
+      dia.trim().toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+    const dias = {
+      lunes: 1,
+      martes: 2,
+      miercoles: 3,
+      jueves: 4,
+      viernes: 5,
+      sabado: 6
+    };
+
+    const eventos = clases
+      .filter(item => dias[normalizarDia(item.dia_semana)] !== undefined)
+      .map(item => {
+        const aula = Array.isArray(item.aula)
+          ? item.aula[0]
+          : item.aula;
+
+        const sede = Array.isArray(aula?.sede)
+          ? aula.sede[0]
+          : aula?.sede;
+
+        const materia =
+          materiasPorComision[item.id_comision] || 'Materia sin nombre';
+
+        const nombreAula = aula?.nombre_numero || 'Aula sin asignar';
+        const nombreSede = sede?.nombre_sede || 'Sede sin asignar';
+
+        return {
+          id: item.id_clase,
+          title: `${materia} (${nombreAula} - ${nombreSede})`,
+          daysOfWeek: [dias[normalizarDia(item.dia_semana)]],
+          startTime: item.hora_inicio,
+          endTime: item.hora_fin,
+          extendedProps: {
+            frecuencia: item.frecuencia,
+            observaciones: item.observaciones
+          }
+        };
+      });
+
+    calendar.addEventSource(eventos);
+
+    estado.textContent =
+      `Se encontraron ${eventos.length} horarios correctamente.`;
+    estado.style.color = 'green';
+
+  } catch (error) {
+    console.error('Error al cargar los horarios:', error);
+
+    estado.textContent =
+      'Error al cargar los horarios: ' +
+      (error.message || 'Error desconocido');
+
+    estado.style.color = 'red';
+  }
+}
+
 
       // Mapeo de datos para transformar el resultado a eventos de FullCalendar
       const eventos = data.map(item => {
