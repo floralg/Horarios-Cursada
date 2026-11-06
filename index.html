@@ -64,7 +64,6 @@
   <div id="calendar"></div>
 
   <script>
-    // 1. Reemplaza con los datos obtenidos de Supabase (Paso 1.4)
     const SUPABASE_URL = 'https://evqllevmxfvltyloeijc.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_3LTlJMiffPnMVvry1bcEEA_4842LZl7';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -101,7 +100,6 @@
       const anio = parseInt(document.getElementById('anio').value);
       const cuatrimestre = parseInt(document.getElementById('cuatrimestre').value);
 
-      // Consulta relacional ejecutada contra Supabase
       const { data, error } = await _supabase
         .from('clase')
         .select(`
@@ -109,12 +107,16 @@
           hora_inicio,
           hora_fin,
           frecuencia,
+          observaciones,
           comision!inner(
             cuatrimestre,
-            plan_estudio!inner(
-              nombre_especifico,
-              id_carrera,
-              anio_cursada
+            asignatura!inner(
+              nombre_generico,
+              plan_estudio!inner(
+                nombre_especifico,
+                id_carrera,
+                anio_cursada
+              )
             )
           ),
           aula(
@@ -122,18 +124,17 @@
             sede(nombre_sede)
           )
         `)
-        .eq('comision.plan_estudio.id_carrera', carrera)
-        .eq('comision.plan_estudio.anio_cursada', anio)
-        .eq('comision.cuatrimestre', cuatrimestre);
+        .eq('comision.cuatrimestre', cuatrimestre)
+        .eq('comision.asignatura.plan_estudio.id_carrera', carrera)
+        .eq('comision.asignatura.plan_estudio.anio_cursada', anio);
 
       if (error) {
         console.error('Error al consultar horarios:', error);
         return;
       }
 
-      // Mapeo de datos para transformar el resultado a eventos de FullCalendar
       const eventos = data.map(item => {
-        const plan = item.comision.plan_estudio[0] || item.comision.plan_estudio;
+        const plan = item.comision.asignatura.plan_estudio[0];
         return {
           title: `${plan.nombre_especifico} (${item.aula.nombre_numero} - ${item.aula.sede.nombre_sede})`,
           daysOfWeek: diasMapa[item.dia_semana] || [],
