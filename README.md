@@ -18,26 +18,6 @@ Actualmente cubre las carreras de Ingeniería Química e Ingeniería en Alimento
 | FullCalendar 6.1.8 | Calendario semanal (`timeGridWeek`) |
 | Supabase JS v2 | Cliente de acceso a la base de datos |
 
-# Sistema de Consulta de Horarios Académicos
-
-Aplicación web de una sola página para consultar los horarios de cursada de distintas carreras en formato de calendario semanal. Los datos se obtienen desde una base de datos [Supabase](https://supabase.com/) y se presentan mediante [FullCalendar](https://fullcalendar.io/).
-
-Actualmente cubre las carreras de Ingeniería Química e Ingeniería en Alimentos, con filtros por año de cursada y cuatrimestre.
-
-## Características
-
-- Vista semanal de lunes a sábado, en el rango de 07:00 a 21:00.
-- Filtros por carrera, año de cursada (3º, 4º y 5º) y cuatrimestre (1º y 2º).
-- Cada evento indica la asignatura, el aula y la sede.
-
-## Tecnologías
-
-| Tecnología | Uso |
-|---|---|
-| HTML, CSS y JavaScript | Interfaz y lógica del cliente |
-| FullCalendar 6.1.8 | Calendario semanal (`timeGridWeek`) |
-| Supabase JS v2 | Cliente de acceso a la base de datos |
-
 ## Modelo de base de datos
 
 La base de datos está implementada en PostgreSQL (Supabase) y se compone de ocho tablas.
