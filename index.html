@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consulta de Horarios Académicos</title>
+  <title>Consulta de horarios académicos</title>
   
   <!-- FullCalendar CDN -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
@@ -13,55 +13,220 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f6f9; }
-    h2 { color: #333; text-align: center; }
-    .filtros-container { display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f6f9; color: #333; }
+    h2 { text-align: center; margin-bottom: 20px; }
+    
+    /* Contenedores principales */
+    .panel-superior {
+      max-width: 1100px;
+      margin: 0 auto 20px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .panel-inferior {
+      max-width: 1100px;
+      margin: 20px auto 0 auto;
+    }
+
+    .tarjeta {
+      background: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+
+    .filtros-container {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
     .form-group { display: flex; flex-direction: column; }
     label { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; color: #555; }
     select, button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9em; }
-    button { background-color: #0056b3; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+    button { background-color: #0056b3; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.2s; }
     button:hover { background-color: #003d80; }
-    #calendar { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    
+    .btn-secundario { background-color: #e9ecef; color: #333; border: 1px solid #ced4da; font-weight: normal; padding: 5px 10px; font-size: 0.85em; }
+    .btn-secundario:hover { background-color: #dde2e6; }
+
+    /* Leyenda de sedes */
+    .referencias-sedes {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      font-size: 0.9em;
+    }
+    .referencias-titulo { font-weight: bold; color: #555; }
+    .sede-item { display: flex; align-items: center; gap: 8px; }
+    .sede-color-muestra { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+
+    /* Panel de personalización de cursada */
+    .personalizacion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .personalizacion-titulo { font-weight: bold; font-size: 0.95em; color: #0056b3; }
+    .personalizacion-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+    
+    .grupo-anio-bloque {
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #e0e0e0;
+    }
+    .grupo-anio-bloque:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .grupo-anio-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .grupo-anio-titulo {
+      font-weight: bold;
+      font-size: 0.88em;
+      color: #495057;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .materias-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 8px;
+    }
+    .materia-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: normal;
+      font-size: 0.9em;
+      color: #333;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .materia-checkbox-label:hover { background-color: #f8f9fa; }
+    .materia-checkbox-label input { cursor: pointer; width: 16px; height: 16px; }
+
+    /* Calendario */
+    #calendar { max-width: 1100px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+    .fc-event { cursor: pointer; }
+
+    /* Ventana modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-contenido {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .modal-titulo {
+      margin-top: 0;
+      color: #0056b3;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      font-size: 1.25em;
+    }
+    .modal-detalle p { margin: 8px 0; line-height: 1.5; }
+    .modal-cerrar { margin-top: 15px; width: 100%; background-color: #6c757d; }
+    .modal-cerrar:hover { background-color: #5a6268; }
   </style>
 </head>
 <body>
 
-  <h2>Sistema de Consulta de Horarios</h2>
+  <h2>Sistema de consulta de horarios</h2>
 
-  <!-- Controles de selección y filtros -->
-  <div class="filtros-container">
-    <div class="form-group">
-      <label for="carrera">Carrera:</label>
-      <select id="carrera">
-        <option value="IQ" selected>Ingeniería Química</option>
-        <option value="IA">Ingeniería en Alimentos</option>
-      </select>
+  <div class="panel-superior">
+    <!-- Controles de selección y filtros -->
+    <div class="tarjeta filtros-container">
+      <div class="form-group">
+        <label for="carrera">Carrera:</label>
+        <select id="carrera">
+          <option value="IQ" selected>Ingeniería Química</option>
+          <option value="IA">Ingeniería en Alimentos</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="anio">Selección inicial por año:</label>
+        <select id="anio" onchange="preseleccionarPorAnio()">
+          <option value="todos">Todos los años</option>
+          <option value="1">1º Año</option>
+          <option value="2">2º Año</option>
+          <option value="3">3º Año</option>
+          <option value="4" selected>4º Año</option>
+          <option value="5">5º Año</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="cuatrimestre">Cuatrimestre:</label>
+        <select id="cuatrimestre">
+          <option value="1">1er Cuatrimestre</option>
+          <option value="2" selected>2do Cuatrimestre</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="justify-content: flex-end;">
+        <button onclick="cargarHorarios()">Buscar horarios</button>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label for="anio">Año de Cursada:</label>
-      <select id="anio">
-        <option value="3">3º Año</option>
-        <option value="4" selected>4º Año</option>
-        <option value="5">5º Año</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="cuatrimestre">Cuatrimestre:</label>
-      <select id="cuatrimestre">
-        <option value="1">1er Cuatrimestre</option>
-        <option value="2" selected>2do Cuatrimestre</option>
-      </select>
-    </div>
-
-    <div class="form-group" style="justify-content: flex-end;">
-      <button onclick="cargarHorarios()">Buscar Horarios</button>
+    <!-- Referencias de colores por sede -->
+    <div id="contenedorReferencias" class="tarjeta referencias-sedes" style="display: none;">
+      <span class="referencias-titulo">Referencias por sede:</span>
+      <div id="listaReferenciasSedes" style="display: flex; gap: 20px; flex-wrap: wrap;"></div>
     </div>
   </div>
 
-  <!-- Contenedor del Calendario Semanal -->
+  <!-- Contenedor del calendario semanal -->
   <div id="calendar"></div>
+
+  <!-- Personalización de cursada multi-año (ubicado debajo del calendario) -->
+  <div class="panel-inferior">
+    <div id="contenedorPersonalizacion" class="tarjeta" style="display: none;">
+      <div class="personalizacion-header">
+        <span class="personalizacion-titulo">Personalización de cursada (combiná asignaturas de distintos años)</span>
+        <div class="personalizacion-acciones">
+          <button type="button" class="btn-secundario" onclick="alternarTodasMaterias(true)">Marcar todas</button>
+          <button type="button" class="btn-secundario" onclick="alternarTodasMaterias(false)">Desmarcar todas</button>
+        </div>
+      </div>
+      <div id="listaMateriasPorAnio"></div>
+    </div>
+  </div>
+
+  <!-- Ventana modal para ampliar información -->
+  <div id="modalDetalle" class="modal-overlay" onclick="cerrarModalExterno(event)">
+    <div class="modal-contenido">
+      <h3 class="modal-titulo" id="modalMateria">Detalle de la asignatura</h3>
+      <div class="modal-detalle" id="modalCuerpo"></div>
+      <button class="modal-cerrar" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  </div>
 
   <script>
     const SUPABASE_URL = 'https://evqllevmxfvltyloeijc.supabase.co';
@@ -69,8 +234,28 @@
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let calendar;
+    let todosLosEventosCargados = [];
 
-    // Mapa de conversión de días para FullCalendar (0=Domingo, 1=Lunes, ..., 6=Sábado)
+    const paletaSedes = [
+      '#0d6efd', // Azul
+      '#198754', // Verde
+      '#6f42c1', // Violeta
+      '#d9534f', // Rojo coral
+      '#fd7e14', // Naranja oscuro
+      '#0891b2', // Cian oscuro
+      '#6610f2', // Índigo
+      '#20c997'  // Verde azulado
+    ];
+    const mapaColoresSede = {};
+
+    function obtenerColorSede(nombreSede) {
+      if (!mapaColoresSede[nombreSede]) {
+        const indice = Object.keys(mapaColoresSede).length % paletaSedes.length;
+        mapaColoresSede[nombreSede] = paletaSedes[indice];
+      }
+      return mapaColoresSede[nombreSede];
+    }
+
     const diasMapa = {
       'Lunes': [1],
       'Martes': [2],
@@ -88,8 +273,11 @@
         allDaySlot: false,
         slotMinTime: '07:00:00',
         slotMaxTime: '21:00:00',
-        hiddenDays: [0], // Ocultar domingos
-        locale: 'es'
+        hiddenDays: [0, 6],
+        locale: 'es',
+        eventClick: function(info) {
+          mostrarDetalleEvento(info.event);
+        }
       });
       calendar.render();
       cargarHorarios();
@@ -97,7 +285,6 @@
 
     async function cargarHorarios() {
       const carrera = document.getElementById('carrera').value;
-      const anio = parseInt(document.getElementById('anio').value);
       const cuatrimestre = parseInt(document.getElementById('cuatrimestre').value);
 
       const { data, error } = await _supabase
@@ -125,26 +312,215 @@
           )
         `)
         .eq('comision.cuatrimestre', cuatrimestre)
-        .eq('comision.asignatura.plan_estudio.id_carrera', carrera)
-        .eq('comision.asignatura.plan_estudio.anio_cursada', anio);
+        .eq('comision.asignatura.plan_estudio.id_carrera', carrera);
 
       if (error) {
         console.error('Error al consultar horarios:', error);
         return;
       }
 
-      const eventos = data.map(item => {
-        const plan = item.comision.asignatura.plan_estudio[0];
-        return {
-          title: `${plan.nombre_especifico} (${item.aula.nombre_numero} - ${item.aula.sede.nombre_sede})`,
-          daysOfWeek: diasMapa[item.dia_semana] || [],
-          startTime: item.hora_inicio,
-          endTime: item.hora_fin
-        };
+      const registrosUnicos = new Set();
+      const materiasPorAnio = new Map();
+      const sedesPresentes = new Set();
+      todosLosEventosCargados = [];
+
+      data.forEach(item => {
+        const nombreGenerico = item.comision.asignatura.nombre_generico.trim();
+        const planes = item.comision.asignatura.plan_estudio;
+        
+        const planCarrera = Array.isArray(planes) 
+          ? planes.find(p => p.id_carrera === carrera) || planes[0]
+          : planes;
+        const anioCursada = planCarrera?.anio_cursada || 0;
+
+        const nombreAula = (item.aula?.nombre_numero || 'Sin aula').trim();
+        const nombreSede = (item.aula?.sede?.nombre_sede || 'Sin sede').trim();
+
+        const claveUnica = `${nombreGenerico}-${item.dia_semana}-${item.hora_inicio}-${item.hora_fin}-${nombreAula}`;
+
+        if (!registrosUnicos.has(claveUnica)) {
+          registrosUnicos.add(claveUnica);
+          sedesPresentes.add(nombreSede);
+
+          if (!materiasPorAnio.has(anioCursada)) {
+            materiasPorAnio.set(anioCursada, new Set());
+          }
+          materiasPorAnio.get(anioCursada).add(nombreGenerico);
+
+          const colorSede = obtenerColorSede(nombreSede);
+
+          todosLosEventosCargados.push({
+            title: `${nombreGenerico} (${nombreAula})`,
+            daysOfWeek: diasMapa[item.dia_semana] || [],
+            startTime: item.hora_inicio,
+            endTime: item.hora_fin,
+            backgroundColor: colorSede,
+            borderColor: colorSede,
+            textColor: '#ffffff',
+            extendedProps: {
+              materia: nombreGenerico,
+              anio: anioCursada,
+              dia: item.dia_semana,
+              horario: `${item.hora_inicio.slice(0, 5)} a ${item.hora_fin.slice(0, 5)}`,
+              aula: nombreAula,
+              sede: nombreSede,
+              frecuencia: item.frecuencia || 'No especificada',
+              observaciones: item.observaciones || 'Ninguna'
+            }
+          });
+        }
       });
 
+      renderizarReferenciasSedes(Array.from(sedesPresentes));
+      renderizarControlesMateriasAgrupados(materiasPorAnio);
+      preseleccionarPorAnio();
+    }
+
+    function renderizarReferenciasSedes(sedes) {
+      const contenedor = document.getElementById('contenedorReferencias');
+      const lista = document.getElementById('listaReferenciasSedes');
+      lista.innerHTML = '';
+
+      if (sedes.length === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      sedes.sort().forEach(sede => {
+        const color = obtenerColorSede(sede);
+        const item = document.createElement('div');
+        item.className = 'sede-item';
+        item.innerHTML = `
+          <span class="sede-color-muestra" style="background-color: ${color};"></span>
+          <span>${sede}</span>
+        `;
+        lista.appendChild(item);
+      });
+
+      contenedor.style.display = 'flex';
+    }
+
+    function renderizarControlesMateriasAgrupados(materiasPorAnio) {
+      const contenedor = document.getElementById('contenedorPersonalizacion');
+      const lista = document.getElementById('listaMateriasPorAnio');
+      lista.innerHTML = '';
+
+      if (materiasPorAnio.size === 0) {
+        contenedor.style.display = 'none';
+        return;
+      }
+
+      const aniosOrdenados = Array.from(materiasPorAnio.keys()).sort((a, b) => a - b);
+
+      aniosOrdenados.forEach(anio => {
+        const bloqueAnio = document.createElement('div');
+        bloqueAnio.className = 'grupo-anio-bloque';
+
+        const etiquetaAnio = anio > 0 ? `${anio}º Año` : 'Año sin especificar';
+
+        const headerAnio = document.createElement('div');
+        headerAnio.className = 'grupo-anio-header';
+        headerAnio.innerHTML = `
+          <span class="grupo-anio-titulo">${etiquetaAnio}</span>
+          <div>
+            <button type="button" class="btn-secundario" style="padding: 2px 8px; font-size: 0.78em;" onclick="alternarGrupoAnio(${anio}, true)">Todas</button>
+            <button type="button" class="btn-secundario" style="padding: 2px 8px; font-size: 0.78em;" onclick="alternarGrupoAnio(${anio}, false)">Ninguna</button>
+          </div>
+        `;
+
+        const gridMaterias = document.createElement('div');
+        gridMaterias.className = 'materias-grid';
+
+        const materiasOrdenadas = Array.from(materiasPorAnio.get(anio)).sort();
+        materiasOrdenadas.forEach(materia => {
+          const label = document.createElement('label');
+          label.className = 'materia-checkbox-label';
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = materia;
+          checkbox.dataset.anio = anio;
+          checkbox.addEventListener('change', aplicarFiltroPersonalizado);
+
+          const texto = document.createElement('span');
+          texto.textContent = materia;
+
+          label.appendChild(checkbox);
+          label.appendChild(texto);
+          gridMaterias.appendChild(label);
+        });
+
+        bloqueAnio.appendChild(headerAnio);
+        bloqueAnio.appendChild(gridMaterias);
+        lista.appendChild(bloqueAnio);
+      });
+
+      contenedor.style.display = 'block';
+    }
+
+    function preseleccionarPorAnio() {
+      const anioSeleccionado = document.getElementById('anio').value;
+      const checkboxes = document.querySelectorAll('#listaMateriasPorAnio input[type="checkbox"]');
+      
+      checkboxes.forEach(cb => {
+        if (anioSeleccionado === 'todos') {
+          cb.checked = true;
+        } else {
+          cb.checked = (cb.dataset.anio === anioSeleccionado);
+        }
+      });
+
+      aplicarFiltroPersonalizado();
+    }
+
+    function alternarGrupoAnio(anio, estado) {
+      const checkboxes = document.querySelectorAll(`#listaMateriasPorAnio input[type="checkbox"][data-anio="${anio}"]`);
+      checkboxes.forEach(cb => cb.checked = estado);
+      aplicarFiltroPersonalizado();
+    }
+
+    function alternarTodasMaterias(estado) {
+      const checkboxes = document.querySelectorAll('#listaMateriasPorAnio input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = estado);
+      aplicarFiltroPersonalizado();
+    }
+
+    function aplicarFiltroPersonalizado() {
+      const checkboxesMarcados = document.querySelectorAll('#listaMateriasPorAnio input[type="checkbox"]:checked');
+      const materiasSeleccionadas = new Set(Array.from(checkboxesMarcados).map(cb => cb.value));
+
+      const eventosFiltrados = todosLosEventosCargados.filter(evento => 
+        materiasSeleccionadas.has(evento.extendedProps.materia)
+      );
+
       calendar.removeAllEvents();
-      calendar.addEventSource(eventos);
+      calendar.addEventSource(eventosFiltrados);
+    }
+
+    function mostrarDetalleEvento(evento) {
+      const props = evento.extendedProps;
+      const textoAnio = props.anio > 0 ? `${props.anio}º Año` : 'No especificado';
+      document.getElementById('modalMateria').textContent = props.materia;
+      document.getElementById('modalCuerpo').innerHTML = `
+        <p><strong>Año de cursada:</strong> ${textoAnio}</p>
+        <p><strong>Día:</strong> ${props.dia}</p>
+        <p><strong>Horario:</strong> ${props.horario} hs</p>
+        <p><strong>Aula:</strong> ${props.aula}</p>
+        <p><strong>Sede:</strong> ${props.sede}</p>
+        <p><strong>Frecuencia:</strong> ${props.frecuencia}</p>
+        <p><strong>Observaciones:</strong> ${props.observaciones}</p>
+      `;
+      document.getElementById('modalDetalle').style.display = 'flex';
+    }
+
+    function cerrarModal() {
+      document.getElementById('modalDetalle').style.display = 'none';
+    }
+
+    function cerrarModalExterno(event) {
+      if (event.target.id === 'modalDetalle') {
+        cerrarModal();
+      }
     }
   </script>
 </body>
